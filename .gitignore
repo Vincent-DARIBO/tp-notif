@@ -2,6 +2,11 @@
 .env
 /node_modules/
 
+# aidd
+aidd*
+.claude
+.mcp.json
+
 # React Router
 /.react-router/
 /build/
