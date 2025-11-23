@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import type { Route } from "./+types/notifications";
 import NotificationList from "~/components/notifications/NotificationList";
+import PWAInstallBanner from "~/components/pwa/PWAInstallBanner";
 import { registerServiceWorker } from "~/utils/registerServiceWorker";
 import { NotificationService } from "~/services/NotificationService";
 import { isClient } from "~/utils/environment";
@@ -80,6 +81,8 @@ export default function NotificationsPage() {
         </header>
 
         <main className="max-w-4xl mx-auto px-3 py-4 sm:px-4 sm:py-6">
+          <PWAInstallBanner />
+
           {showNotificationBanner && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
