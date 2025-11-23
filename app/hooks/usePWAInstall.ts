@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { PWAService } from "../services/PWAService";
+import { json } from "stream/consumers";
 
 export default function usePWAInstall() {
   const [isInstallable, setIsInstallable] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -13,9 +15,7 @@ export default function usePWAInstall() {
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      PWAService.setBeforeInstallPromptEvent(
-        e as BeforeInstallPromptEvent
-      );
+      PWAService.setBeforeInstallPromptEvent(e as BeforeInstallPromptEvent);
       setIsInstallable(true);
       setShowBanner(PWAService.shouldShowBanner());
     };
@@ -29,6 +29,7 @@ export default function usePWAInstall() {
     window.addEventListener("appinstalled", handleAppInstalled);
 
     setShowBanner(PWAService.shouldShowBanner());
+    setIsStandalone(PWAService.isStandalone());
 
     return () => {
       window.removeEventListener(
@@ -70,8 +71,6 @@ export default function usePWAInstall() {
       console.error("Erreur lors de la fermeture de la bannière:", error);
     }
   };
-
-  const isStandalone = PWAService.isStandalone();
 
   return {
     isInstallable,

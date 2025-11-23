@@ -18,7 +18,8 @@ export default function PWAInstallBanner() {
               Installer l'application
             </h3>
             <p className="text-xs sm:text-sm text-blue-50">
-              Accédez rapidement à vos notifications depuis votre écran d'accueil
+              Accédez rapidement à vos notifications depuis votre écran
+              d'accueil
             </p>
           </div>
         </div>

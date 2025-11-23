@@ -21,7 +21,7 @@ export class PWAService {
     }
 
     try {
-      this.beforeInstallPromptEvent.prompt();
+      await this.beforeInstallPromptEvent.prompt();
       const choiceResult = await this.beforeInstallPromptEvent.userChoice;
 
       if (choiceResult.outcome === "accepted") {
@@ -68,10 +68,7 @@ export class PWAService {
 
   static dismissBanner(): void {
     try {
-      localStorage.setItem(
-        INSTALL_BANNER_DISMISSED_KEY,
-        Date.now().toString()
-      );
+      localStorage.setItem(INSTALL_BANNER_DISMISSED_KEY, Date.now().toString());
     } catch (error) {
       throw PWAError.storageFailed(error);
     }
@@ -79,9 +76,7 @@ export class PWAService {
 
   static shouldShowBanner(): boolean {
     return (
-      !this.isStandalone() &&
-      this.isInstallable() &&
-      !this.isBannerDismissed()
+      !this.isStandalone() && this.isInstallable() && !this.isBannerDismissed()
     );
   }
 }
