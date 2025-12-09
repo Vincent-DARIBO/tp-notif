@@ -1,5 +1,11 @@
 import { NotificationError } from '../errors/NotificationError';
 import { isServer } from '../utils/environment';
+import { SupabaseService } from './SupabaseService';
+import {
+  savePendingRegistration,
+  getPendingRegistration,
+  clearPendingRegistration
+} from '../utils/pushSubscriptionRetry';
 import type {
   Notification,
   AcceptSlotDTO,
@@ -347,25 +353,87 @@ export class NotificationService {
 
     try {
       const registration = await navigator.serviceWorker.ready;
+
+      // Get VAPID public key from environment or use placeholder
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY ||null;
+
+      if (vapidPublicKey === null) {
+        throw new Error('VAPID public key not configured. Push notifications may not work.');
+      }
+
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(
-          // TODO: Remplacer par votre clé publique VAPID
-          // Générer via: npx web-push generate-vapid-keys
-          'YOUR_PUBLIC_VAPID_KEY'
-        ),
+        applicationServerKey: this.urlBase64ToUint8Array(vapidPublicKey),
       });
 
-      // TODO: Envoyer la subscription au backend
-      // await fetch(`${this.API_BASE_URL}/subscribe`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(subscription),
-      // });
+      // Register subscription with Supabase
+      try {
+        await SupabaseService.registerPushSubscription(subscription);
+        clearPendingRegistration(); // Clear any pending retry
+      } catch (registrationError) {
+        // Save for retry if registration fails
+        savePendingRegistration(subscription);
+        console.error('Failed to register push subscription, saved for retry:', registrationError);
+        // Don't throw - subscription was created successfully even if registration failed
+      }
 
       return subscription;
     } catch (error) {
       throw NotificationError.fetchFailed(error);
+    }
+  }
+
+  /**
+   * Retry pending push subscription registration
+   *
+   * Called on app load to retry any failed registration attempts
+   */
+  static async retryPendingRegistrations(): Promise<void> {
+    if (isServer() || typeof navigator === 'undefined') {
+      return;
+    }
+
+    const pending = getPendingRegistration();
+    if (!pending) {
+      return;
+    }
+
+    try {
+      // Get current subscription from service worker
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription || subscription.endpoint !== pending.endpoint) {
+        // Subscription changed or doesn't exist, clear pending
+        clearPendingRegistration();
+        return;
+      }
+
+      // Retry registration
+      await SupabaseService.registerPushSubscription(subscription);
+      clearPendingRegistration();
+    } catch (error) {
+      console.error('Failed to retry pending registration:', error);
+      // Keep in localStorage for next retry
+    }
+  }
+
+  /**
+   * Get current push subscription from Service Worker
+   *
+   * @returns Current PushSubscription or null
+   */
+  static async getCurrentSubscription(): Promise<PushSubscription | null> {
+    if (isServer() || typeof navigator === 'undefined') {
+      return null;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      return await registration.pushManager.getSubscription();
+    } catch (error) {
+      console.error('Failed to get current subscription:', error);
+      return null;
     }
   }
 
@@ -386,7 +454,7 @@ export class NotificationService {
    * 3. Décode via window.atob()
    * 4. Convertit chaque caractère en byte dans un Uint8Array
    */
-  private static urlBase64ToUint8Array(base64String: string): Uint8Array {
+  private static urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
     if (isServer()) {
       return new Uint8Array(0);
     }
