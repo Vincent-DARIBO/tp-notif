@@ -10,12 +10,14 @@ import AdminLayout from '~/components/admin/AdminLayout';
 export default function AdminDashboard() {
   return (
     <ProtectedRoute>
-      <AdminLayout />
+      <AdminLayout>
+        <DashboardContent />
+      </AdminLayout>
     </ProtectedRoute>
   );
 }
 
-export function DashboardContent() {
+function DashboardContent() {
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>

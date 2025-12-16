@@ -8,7 +8,11 @@
 import { Link, Outlet } from 'react-router';
 import useAdminLayout from '~/hooks/useAdminLayout';
 
-export default function AdminLayout() {
+interface AdminLayoutProps {
+  children?: React.ReactNode;
+}
+
+export default function AdminLayout({ children }: AdminLayoutProps) {
   const { user, handleLogout, navItems, isActive } = useAdminLayout();
 
   return (
@@ -58,7 +62,7 @@ export default function AdminLayout() {
 
         {/* Main Content */}
         <main className="flex-1 p-8">
-          <Outlet />
+          {children || <Outlet />}
         </main>
       </div>
     </div>
