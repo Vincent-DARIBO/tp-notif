@@ -355,7 +355,7 @@ export class NotificationService {
       const registration = await navigator.serviceWorker.ready;
 
       // Get VAPID public key from environment or use placeholder
-      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY ||null;
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || null;
 
       if (vapidPublicKey === null) {
         throw new Error('VAPID public key not configured. Push notifications may not work.');
@@ -373,7 +373,7 @@ export class NotificationService {
       } catch (registrationError) {
         // Save for retry if registration fails
         savePendingRegistration(subscription);
-        console.error('Failed to register push subscription, saved for retry:', registrationError);
+        alert('Failed to register push subscription, saved for retry:' + JSON.stringify({ registrationError }, null, 2));
         // Don't throw - subscription was created successfully even if registration failed
       }
 

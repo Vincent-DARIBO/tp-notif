@@ -103,6 +103,7 @@ export default function NotificationsPage() {
       setTimeout(() => setStatusMessage(null), 5000);
       return;
     }
+    alert("registering to push")
     registerPushSubscription();
   };
 

@@ -44,6 +44,7 @@ export default function useRegisterPushSubscription({
       if (!user) {
         throw AuthError.unauthorized();
       }
+      alert(user.id)
 
       // Request notification permission
       const permission =

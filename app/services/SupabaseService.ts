@@ -52,6 +52,7 @@ export class SupabaseService {
     try {
       const user = await this.getCurrentUser();
       if (!user) {
+        alert("no user")
         throw new Error("User not authenticated");
       }
 
@@ -60,6 +61,8 @@ export class SupabaseService {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
+        alert("no session")
+
         throw new Error("No active session");
       }
 
@@ -84,9 +87,6 @@ export class SupabaseService {
         return;
       }
 
-      console.log("SUPABASE_URL", import.meta.env.VITE_SUPABASE_URL);
-      console.log("vapidPublicKey", import.meta.env.VITE_VAPID_PUBLIC_KEY);
-
       // Call subscribe Edge Function
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subscribe`,
@@ -107,7 +107,9 @@ export class SupabaseService {
       );
 
       if (!response.ok) {
+        
         const error = await response.json();
+        alert(JSON.stringify(error, null, 2))
         throw SupabaseError.subscriptionFailed(error);
       }
     } catch (error) {

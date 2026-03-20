@@ -25,7 +25,7 @@ import type {
 } from "~/types/admin";
 import { SupabaseService } from "./SupabaseService";
 
-export class AdminService {
+export default class AdminService {
   /**
    * Send a notification to recipients
    *
@@ -210,6 +210,70 @@ export class AdminService {
         throw error;
       }
       throw AdminError.getSlotRecipientsFailed(error);
+    }
+  }
+
+  /**
+   * Test push notification delivery
+   *
+   * @returns TestPushResult with delivery status and details
+   * @throws {AdminError} If test fails or user not authorized
+   *
+   * Calls the test-push-notification Edge Function which:
+   * - Verifies admin role
+   * - Fetches admin's active push subscriptions
+   * - Sends test notification to admin's devices
+   * - Returns delivery status and details
+   */
+  static async testPushNotification(): Promise<{
+    success: boolean;
+    subscriptionsFound: number;
+    pushNotificationsSent: number;
+    failedDeliveries: number;
+    message?: string;
+    details: Array<{
+      endpoint: string;
+      status: 'success' | 'failed';
+      error?: string;
+    }>;
+  }> {
+    try {
+      // Get auth token
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw AdminError.notAuthorized();
+      }
+
+      // Call test-push-notification Edge Function
+      const response = await supabase.functions.invoke("test-push-notification", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.error || !response.data) {
+        throw AdminError.sendNotificationFailed(
+          response.error || "Unknown error"
+        );
+      }
+
+      return response.data;
+    } catch (error) {
+      console.log(
+        "AdminService: testPushNotification: error",
+        JSON.stringify(error, null, 2)
+      );
+      if (error instanceof AdminError) {
+        throw error;
+      }
+      // Check for network errors
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throw AdminError.sendNotificationFailed("Erreur réseau");
+      }
+      throw AdminError.sendNotificationFailed(error);
     }
   }
 

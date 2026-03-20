@@ -41,6 +41,7 @@ export class AuthService {
         });
 
       if (authError || !authData.user) {
+        alert(authError?.message)
         if (authError?.message.includes("Invalid")) {
           throw AuthError.invalidCredentials();
         }
@@ -53,6 +54,8 @@ export class AuthService {
         .select("*")
         .eq("id", authData.user.id)
         .single();
+
+      alert(JSON.stringify({ id: authData.user?.id, profile , profileError}, null, 2))
 
       if (profileError || !profile) {
         console.log(JSON.stringify({ profileError, profile }, null, 2));
@@ -160,11 +163,12 @@ export class AuthService {
       // User record is automatically created by database trigger
       // Fetch it to return
       const { data: profile, error: profileError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", authData.user.id)
-        .single();
+        .from("users").insert({
+          id: authData.user.id,
+          email,
+          role: "admin",
 
+        }).select()
       if (profileError || !profile) {
         console.log(JSON.stringify({ profileError, profile }, null, 2));
         throw AuthError.userNotFound();

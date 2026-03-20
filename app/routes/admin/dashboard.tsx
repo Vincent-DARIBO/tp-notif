@@ -4,8 +4,10 @@
  * Displays the admin dashboard with statistics and quick actions.
  */
 
+import { useState } from 'react';
 import ProtectedRoute from '~/components/ProtectedRoute';
 import AdminLayout from '~/components/admin/AdminLayout';
+import useTestPushNotification from '~/hooks/useTestPushNotification';
 
 export default function AdminDashboard() {
   return (
@@ -18,6 +20,27 @@ export default function AdminDashboard() {
 }
 
 function DashboardContent() {
+  const { testPushNotification, isTesting } = useTestPushNotification();
+  const [testResult, setTestResult] = useState<string | null>(null);
+
+  const handleTestPush = async () => {
+    setTestResult(null);
+    testPushNotification(undefined, {
+      onSuccess: (data) => {
+        if (data.success) {
+          setTestResult(
+            `✅ Test réussi ! ${data.pushNotificationsSent}/${data.subscriptionsFound} notifications envoyées.`
+          );
+        } else {
+          setTestResult(`⚠️ ${data.message || 'Aucune subscription trouvée'}`);
+        }
+      },
+      onError: (error) => {
+        setTestResult(`❌ Erreur: ${error.message}`);
+      },
+    });
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
@@ -86,7 +109,7 @@ function DashboardContent() {
         <h3 className="text-lg font-medium text-gray-900 mb-4">
           Actions rapides
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <a
             href="/admin/send"
             className="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition"
@@ -116,7 +139,30 @@ function DashboardContent() {
               </p>
             </div>
           </a>
+
+          <button
+            onClick={handleTestPush}
+            disabled={isTesting}
+            className="flex items-center p-4 border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="text-3xl mr-4">🧪</span>
+            <div className="text-left">
+              <h4 className="font-medium text-gray-900">
+                {isTesting ? 'Test en cours...' : 'Tester les notifications'}
+              </h4>
+              <p className="text-sm text-gray-600">
+                Envoyer une notification de test à vos appareils
+              </p>
+            </div>
+          </button>
         </div>
+
+        {/* Test Result Display */}
+        {testResult && (
+          <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-700">{testResult}</p>
+          </div>
+        )}
       </div>
     </div>
   );
