@@ -70,6 +70,10 @@ interface WebPushSubscription {
   };
 }
 
+function toBase64Url(base64: string): string {
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
 // Convert database subscription to Web Push format
 function convertToWebPushSubscription(
   dbSub: PushSubscriptionDB
@@ -77,8 +81,8 @@ function convertToWebPushSubscription(
   return {
     endpoint: dbSub.endpoint,
     keys: {
-      p256dh: dbSub.p256dh_key,
-      auth: dbSub.auth_key,
+      p256dh: toBase64Url(dbSub.p256dh_key),
+      auth: toBase64Url(dbSub.auth_key),
     },
   };
 }
@@ -87,6 +91,34 @@ function convertToWebPushSubscription(
 interface VapidKeys {
   publicKey: string;
   privateKey: string;
+}
+
+function base64UrlToUint8Array(base64url: string): Uint8Array {
+  const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(base64 + padding);
+  return new Uint8Array([...binary].map((c) => c.charCodeAt(0)));
+}
+
+function uint8ArrayToBase64Url(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+}
+
+function vapidKeysToJwk(
+  publicKeyBase64url: string,
+  privateKeyBase64url: string
+): { publicKey: JsonWebKey; privateKey: JsonWebKey } {
+  // VAPID public key is an uncompressed EC point: 0x04 || x (32 bytes) || y (32 bytes)
+  const pubBytes = base64UrlToUint8Array(publicKeyBase64url);
+  const x = uint8ArrayToBase64Url(pubBytes.slice(1, 33));
+  const y = uint8ArrayToBase64Url(pubBytes.slice(33, 65));
+  return {
+    publicKey: { kty: "EC", crv: "P-256", x, y },
+    privateKey: { kty: "EC", crv: "P-256", x, y, d: privateKeyBase64url },
+  };
 }
 
 function getVapidKeys(): VapidKeys {
@@ -106,11 +138,14 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log("entering function")
+
   try {
     // Create Supabase client with service role (bypasses RLS for admin operations)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
 
     // Get authenticated user from JWT
     const authHeader = req.headers.get("Authorization");
@@ -158,7 +193,25 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const payload: SendNotificationPayload = await req.json();
+    const rawBody = await req.text();
+    console.log("[DEBUG] Raw request body:", rawBody);
+    console.log("[DEBUG] Content-Type:", req.headers.get("content-type"));
+
+    let payload: SendNotificationPayload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch (parseError) {
+      console.error("[DEBUG] JSON parse failed:", parseError);
+      console.error("[DEBUG] Body length:", rawBody.length);
+      console.error("[DEBUG] Body preview:", rawBody.substring(0, 200));
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON body", raw: rawBody.substring(0, 200) }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
     console.log({ payload });
 
     // Validate payload
@@ -174,7 +227,7 @@ Deno.serve(async (req) => {
 
     // Resolve recipients based on notification type
     let recipientIds: string[] = [];
-    console.log({ recipientIds });
+    console.log({ recipientIds: payload.recipientIds });
 
     switch (payload.type) {
       case "SLOT_PROPOSAL": {
@@ -352,16 +405,22 @@ Deno.serve(async (req) => {
     if (subscriptions && subscriptions.length > 0) {
       try {
         // Initialize VAPID keys
-        const vapidKeys = getVapidKeys();
-        await webpush.importVapidKeys({
-          publicKey: vapidKeys.publicKey,
-          privateKey: vapidKeys.privateKey,
+        const { publicKey: rawPublicKey, privateKey: rawPrivateKey } = getVapidKeys();
+        console.log("[DEBUG] VAPID publicKey length:", rawPublicKey.length);
+        console.log("[DEBUG] VAPID privateKey length:", rawPrivateKey.length);
+
+        const jwkKeys = vapidKeysToJwk(rawPublicKey, rawPrivateKey);
+        const vapidKeys = await webpush.importVapidKeys({
+          publicKey: jwkKeys.publicKey,
+          privateKey: jwkKeys.privateKey,
         });
+        console.log("[DEBUG] VAPID keys imported successfully");
 
         // Create application server
         const adminEmail = Deno.env.get("ADMIN_EMAIL") || "admin@example.com";
         const appServer = await webpush.ApplicationServer.new({
           contactInformation: `mailto:${adminEmail}`,
+          vapidKeys,
         });
 
         // Send to each subscription
@@ -459,7 +518,7 @@ Deno.serve(async (req) => {
             }
           };
 
-          await sendPush(0);
+          await sendPush  (0);
         }
       } catch (error) {
         console.error("Web Push initialization error:", error);

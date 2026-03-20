@@ -57,7 +57,6 @@ export default class AdminService {
       const response = await supabase.functions.invoke("send-notification", {
         body: payload,
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
       });
