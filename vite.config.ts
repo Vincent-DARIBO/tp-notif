@@ -32,6 +32,7 @@ export default defineConfig({
     },
   ],
   server: {
+    allowedHosts:[ "http://d660-2001-861-206-71d0-f4db-b25b-a626-909d.ngrok-free.app/"],
     hmr: {
       overlay: true,
     },
