@@ -6,7 +6,7 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AdminService } from '~/services/AdminService';
+import AdminService from '~/services/AdminService';
 import type { SendNotificationPayload, DeliveryReport } from '~/types/admin';
 
 interface UseSendNotificationOptions {

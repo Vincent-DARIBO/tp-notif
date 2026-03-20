@@ -5,7 +5,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { AdminService } from '~/services/AdminService';
+import AdminService from '~/services/AdminService';
 
 export default function useAvailableSlots() {
   const { data, isLoading, error } = useQuery({
